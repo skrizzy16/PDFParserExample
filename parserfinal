@@ -1,0 +1,79 @@
+#project to parse PDF files and conduct search
+
+#necessary packages
+from curses.ascii import isupper
+import os
+import sys
+import PyPDF2
+import csv
+import selenium
+import json
+import re
+
+#open the PDF file
+pdfFileObj = open('list.pdf', 'rb') 
+    
+# creating a pdf reader object 
+pdfReader = PyPDF2.PdfFileReader(pdfFileObj) 
+ListOfProviders = []
+ProviderString = ''
+
+#iterate through page list of approved and in scope providers
+for i in range(5,31):
+    pageObj = pdfReader.getPage(i)
+    #print(pageObj.extractText())
+    ListOfProviders.append(pageObj.extractText())
+    ProviderString+=str((pageObj.extractText()))
+
+# closing the pdf file object 
+pdfFileObj.close() 
+
+#splitting the string into a clean list.
+CleanedList = ProviderString.split('\n')
+
+#create a list of just all caps strings to return names
+NameList = []
+for i in CleanedList:
+    if i.isupper() == True:
+        NameList.append(i)
+
+#clean NPI reference as it is unfortunately included
+RegExList = [a for a in NameList if not re.search('NPI',a)]
+
+#clean sub 7 chars to get rid of false positives of just certifications
+for name in RegExList:
+    if len(name) < 7:
+        RegExList.pop(RegExList.index(name))
+
+#sorted list, as some names included numbers from pages by accident
+RegExList = sorted(RegExList)
+
+#lowercase it all
+for i in range(len(RegExList)):
+    RegExList[i] = RegExList[i].lower()
+
+#just everything before everything before comma to get rid of certifications
+for i in range(len(RegExList)):
+    RegExList[i] = RegExList[i].split(',',1)[0]
+
+#sort the list
+RegExList = sorted(RegExList)
+
+#placeholder
+FinalList = []
+#remove middle characters
+for name in RegExList:
+    name = name.split()
+    for character in name:
+        if len(character) == 1:
+            name.remove(character)
+    
+    name = ' '.join(name)
+    FinalList.append(name)
+    
+
+#write to file
+with open('doctors2.csv', 'w') as f: 
+    writer = csv.writer(f) 
+    for val in FinalList:
+        writer.writerow([val])
